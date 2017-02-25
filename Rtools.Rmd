@@ -1,0 +1,378 @@
+---
+title: "CEU-R-Tools-Project"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##This is my new project
+install.packages('data.table')
+install.packages('nycflights13')
+install.packages('dplyr')
+install.packages("lubridate")
+install.packages("tidyr")
+install.packages("pander")
+
+# CLEAR MEMORY
+
+```{r}
+rm(list = ls())
+```
+
+
+```{r}
+
+library(nycflights13)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(plyr)
+library(lubridate)
+library(tidyr)
+library(class)
+library(pander)
+```
+Read the data table. 
+
+```{r}
+
+dtflights <- data.table(flights)
+dtairpoirts <- data.table(airports)
+dtairlines <- data.table(airlines)
+dtplanes <- data.table(planes)
+dtweather <- data.table(weather)
+str(flights)
+?flights
+```
+
+##Flights departure delay
+```{r}
+
+plot(sort(flights$dep_delay), type="h", ylab="Departure Delay")
+```
+
+##Arrival Time delays in minute
+```{r}
+hist(dtflights$arr_delay, main = "Arrival Time Delays [in minutes]")
+```
+
+
+##Flights departure delay with histogram and density plot
+
+```{r}
+hist(flights$dep_delay, xlab="Departure Delay")
+plot(density(flights$dep_delay, na.rm=TRUE), xlab="Departure Delay")
+```
+
+##Flights departure delay with boxplot
+```{r}
+boxplot(log(flights$dep_delay - 
+            min(flights$dep_delay,na.rm=TRUE)
+            +1), ylab="Departure Delay")
+```
+##The average departure and arrival delays per destination
+
+```{r}
+
+dta <- dtflights[, .(departure = mean(dep_delay, na.rm = TRUE),
+              arrival = mean(arr_delay, na.rm = TRUE)), by = dest]
+ggplot(dta, aes(departure, arrival, label = dest)) + geom_text()
+```
+
+##Histogram of Flight Air time
+
+```{r}
+hist(dtflights$air_time, xlab = "Flight Air Time [in minutes]", main = "Histogram of Flight Air Time")
+```
+
+
+## Which destination has the lowest average delay from 'EWR'?
+```{r}
+dta <- dtflights[origin == 'EWR', .(delay = mean(arr_delay, na.rm = TRUE)), by = dest]
+setorder(dta, delay)
+head(dta)
+dta[1]
+
+```
+
+##The average delay to all destinations from 'EWR
+
+```{r}
+ggplot(dta, aes(dest, delay)) + geom_bar(stat = 'identity') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+##The number of flights per month
+```{r}
+
+ggplot(dtflights[, .N, by = month], aes(month, N)) + geom_bar(stat = 'identity')
+```
+
+
+##Heatmap on the number of flights per month and hour of the day
+```{r}
+ggplot(dtflights[, .N, by = .(month, hour)], aes(hour, month, fill = N)) + geom_tile()
+```
+#The average temperature at noon in JFK for each month based on the `weather` dataset
+```{r}
+
+dt <- data.table(weather)
+ggplot(dt[origin == 'JFK', .(temp = mean(temp, na.rm = TRUE)), by = month], aes(month, temp)) +
+  geom_bar(stat = 'identity', color = 'red')
+```
+
+##The average seats and engines per manufacturer
+```{r}
+dta <- dtplanes[, .(seats = mean(seats, na.rm = TRUE),
+              engines = mean(engines, na.rm = TRUE)), by = manufacturer]
+ggplot(dta, aes(seats, engines, label = manufacturer)) + geom_bar(stat = 'identity', color = 'red') + geom_text()
+
+```
+
+##The average windspeed and wind direction  per origin
+```{r}
+dta <- dtweather[, .(wind_dir = mean(wind_dir, na.rm = TRUE),
+              wind_speed = mean(wind_speed, na.rm = TRUE)), by = origin]
+ggplot(dta, aes(wind_speed, wind_dir, label = origin)) + geom_bar(stat = 'identity', color = 'red') + geom_text()
+```
+
+##The average temperature and humid  per origin
+```{r}
+dta <- dtweather[, .(temp = mean(wind_dir, na.rm = TRUE),
+              humid = mean(wind_speed, na.rm = TRUE)), by = origin]
+ggplot(dta, aes(temp, humid, label = origin)) + geom_bar(stat = 'identity', color = 'red') + geom_text()
+```
+
+## How to affect humidity or temperature on delays
+
+## Featuring
+```{r}
+dtflights$hour <- ifelse(dtflights$hour == 24, 0, flights$hour)
+
+flights_weather <- left_join(dtflights, dtweather)
+
+flights_weather$arr_delay <- ifelse(flights_weather$arr_delay >= 0,
+                                    flights_weather$arr_delay, 0)
+flights_weather$dep_delay <- ifelse(flights_weather$dep_delay >= 0,
+                                    flights_weather$dep_delay, 0)
+flights_weather$total_delay <- flights_weather$arr_delay + flights_weather$dep_delay
+
+data <- select(flights_weather, total_delay, temp, dewp, humid,
+                   wind_dir, wind_speed, wind_gust, precip, pressure, visib)
+```
+
+## Effect of the humidity on delays
+
+```{r}
+g <- ggplot(data, aes(y = humid, x = total_delay, 
+                          title = "Total Delay / Humidity"))
+g + geom_smooth() + ylab("Relative Humidity") + 
+  xlab("Total Delay (mins)")
+```
+
+## Effect of the temperature on delays
+
+```{r}
+g <- ggplot(data, aes(y = temp, x = total_delay, 
+                          title = "Total Delay / Temperature"))
+g + geom_smooth() + ylab("Temperature") + 
+  xlab("Total Delay (mins)")
+```
+
+
+
+##Effect of the wind speed on delays
+
+```{r}
+g <- ggplot(data, aes(y = wind_speed, x = total_delay, 
+                          title = "Total Delay / wind speed"))
+g + geom_smooth() + ylab("wind speed") + 
+  xlab("Total Delay (mins)")
+```
+
+###Average departure delay by manufacutrer
+
+```{r}
+flights_planes <- left_join(dtflights, dtplanes, by = 'tailnum')
+dta <- ddply(flights_planes,~manufacturer,summarise, delay=mean(dep_delay, na.rm=TRUE))
+setorder(dta, delay)
+
+ggplot(dta, aes(manufacturer, delay)) + geom_bar(stat = 'identity') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+###Average arrival delay by manufacutrer
+```{r}
+dta <- ddply(flights_planes,~manufacturer,summarise, delay=mean(arr_delay, na.rm=TRUE))
+setorder(dta, delay)
+
+ggplot(dta, aes(manufacturer, delay)) + geom_bar(stat = 'identity') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+
+
+
+
+###More feature engineering
+Data table without NA's, make binary variable which shows if an airplane delay more than 15 minutes.
+I decreased the observations number to 15.0000.
+
+```{r}
+
+
+
+dtflights <- subset (flights, !is.na(flights$dep_time) &
+    !is.na(flights$dep_delay) &
+    !is.na(flights$arr_delay) &
+    !is.na(flights$dep_time) &
+    !is.na(flights$arr_time))
+dtflights$tailnumfac <- as.factor(dtflights$tailnum)
+dtflights$carrierfac <- as.factor(dtflights$carrier)
+dtflights$originfac <- as.factor(dtflights$origin)
+dtflights$destfac <- as.factor(dtflights$dest)
+
+dtflights <- dtflights[sample(1:nrow(dtflights), 15000, replace=FALSE),]
+
+dtflights$tailnumnum <- as.numeric(dtflights$tailnumfac)
+dtflights$carriernum <- as.numeric(dtflights$carrierfac)
+dtflights$originnum <- as.numeric(dtflights$originfac)
+dtflights$destnum <- as.numeric(dtflights$destfac)
+
+dtflights$year <- NULL
+dtflights$tail_num <- NULL
+dtflights$tailnum <- NULL
+dtflights$carrier <- NULL
+dtflights$dest <- NULL
+dtflights$origin <- NULL
+dtflights$tailnum <- NULL
+dtflights$tailnumfac <- NULL
+dtflights$carrierfac <- NULL
+dtflights$destfac <- NULL
+dtflights$originfac <- NULL
+dtflights$tailnumfac <- NULL
+
+str(dtflights)
+
+dtflights$arrdelay15 <- ifelse(dtflights$arr_delay > 15,1,0)
+dtflights$year <- NULL
+time_format <- "%Y-%m-%d %H:%M:%S"
+dtflights$weekday <- as.factor(format(strptime(dtflights$time_hour, format=time_format),"%A"))
+dtflights$time_hour <- NULL
+
+
+```
+
+## 2-Nearest Neighbors algorithm
+
+```{r}
+dtflights$rnd <-runif(dim(dtflights[1])) 
+dtflights <- dtflights[order(dtflights$rnd),]
+
+
+dtflights
+
+train <- dtflights[0:round((dim(dtflights)[1])*0.7),]
+test <- dtflights[(round((dim(dtflights)[1])*0.7)+1):(dim(dtflights)[1]),]
+dtflights$rnd <-NULL
+
+fit <- knn(train[,1:15], test[,1:15], train$arrdelay15, k = 2)
+
+pander(table(test$arrdelay15,fit))
+```
+
+## 5-Nearest Neighbors algorithm
+
+```{r}
+fit2 <- knn(train[,1:15], test[,1:15], train$arrdelay15, k = 5)
+pander(table(test$arrdelay15,fit2))
+
+total <- dim(test)[1]
+
+```
+All in all the 2-NN model has provided 78 % result, the 5- NN model has provided 80 % good result.
+
+#Modeling
+### CLEAR MEMORY
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+library(h2o)
+h2o.init()
+```
+
+
+## write demo data to disk
+
+```{r}
+library(nycflights13)
+write.csv(flights, 'flights.csv', row.names = FALSE)
+flights.hex <- h2o.uploadFile('flights.csv', destination_frame = 'flights')
+str(flights.hex)
+head(flights.hex)
+head(flights.hex, 3)
+summary(flights.hex)
+```
+
+## convert numeric to factor/enum
+```{r}
+
+flights.hex[, 'flight'] <- as.factor(flights.hex[, 'flight'])
+summary(flights.hex)
+flights.hex$flight <- as.factor(flights.hex$flight)
+for (v in c('month', 'day', 'dep_delay', 'arr_delay')) {
+    flights.hex[, v] <- as.factor(flights.hex[, v])
+}
+summary(flights.hex)
+```
+
+## drop columns
+```{r}
+dt <- data.table(flights)
+dt$delay15 <- ifelse(dt$arr_delay > 15,1,0)
+str(dt)
+dt <- dt[, .(month, day, dest, origin,
+             carrier, flight, tailnum, distance, delay15)]
+```
+
+
+## transform to factor
+```{r}
+for (v in c('month', 'day', 'flight', 'carrier')) {
+    set(dt, j = v, value = as.factor(dt[, get(v)]))
+}
+str(dt)
+```
+
+## re-upload to H2O
+```{r}
+h2o.ls()
+h2o.rm('flights')
+as.h2o(dt, 'flights')
+```
+
+## split the data
+```{r}
+flights.hex <- h2o.getFrame('flights')
+h2o.splitFrame(data = flights.hex , ratios = 0.75, destination_frames = c('train', 'test'))
+h2o.ls()
+
+```
+
+## build the first model
+
+```{r}
+flights.rf <- h2o.randomForest(
+    x = names(flights.hex),
+    y = 'delay15',
+    training_frame = 'train',
+    validation_frame = 'test')
+flights.rf
+
+```
+
+
