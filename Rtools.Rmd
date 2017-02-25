@@ -7,15 +7,11 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-##This is my new project
-install.packages('data.table')
-install.packages('nycflights13')
-install.packages('dplyr')
-install.packages("lubridate")
-install.packages("tidyr")
-install.packages("pander")
+#Link to my project on github
 
-# CLEAR MEMORY
+https://github.com/AttilaKrajko/CEU-R-Project
+
+## CLEAR MEMORY
 
 ```{r}
 rm(list = ls())
