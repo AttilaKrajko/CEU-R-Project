@@ -115,7 +115,7 @@ ggplot(dtflights[, .N, by = month], aes(month, N)) + geom_bar(stat = 'identity')
 ```{r}
 ggplot(dtflights[, .N, by = .(month, hour)], aes(hour, month, fill = N)) + geom_tile()
 ```
-#The average temperature at noon in JFK for each month based on the `weather` dataset
+#The average temperature at noon in JFK for each month based on the weather dataset
 ```{r}
 
 dt <- data.table(weather)
