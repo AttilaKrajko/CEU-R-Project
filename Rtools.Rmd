@@ -57,10 +57,10 @@ hist(dtflights$arr_delay, main = "Arrival Time Delays [in minutes]")
 
 
 ##Flights departure delay with histogram and density plot
-
 ```{r}
 hist(flights$dep_delay, xlab="Departure Delay")
-plot(density(flights$dep_delay, na.rm=TRUE), xlab="Departure Delay")
+
+plot(density(flights$dep_delay, na.rm=TRUE))
 ```
 
 ##Flights departure delay with boxplot
@@ -69,8 +69,8 @@ boxplot(log(flights$dep_delay -
             min(flights$dep_delay,na.rm=TRUE)
             +1), ylab="Departure Delay")
 ```
-##The average departure and arrival delays per destination
 
+##The average departure and arrival delays per destination
 ```{r}
 
 dta <- dtflights[, .(departure = mean(dep_delay, na.rm = TRUE),
@@ -95,7 +95,6 @@ dta[1]
 ```
 
 ##The average delay to all destinations from 'EWR
-
 ```{r}
 ggplot(dta, aes(dest, delay)) + geom_bar(stat = 'identity') + theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
@@ -370,5 +369,17 @@ flights.rf <- h2o.randomForest(
 flights.rf
 
 ```
+
+## GBM
+```{r}
+flights.gbm <- h2o.gbm(
+    x = names(flights.hex),
+    y = 'delay15',
+    training_frame = 'train',
+    validation_frame = 'test',
+    model_id = 'flights_gbm')
+flights.gbm
+```
+
 
 
